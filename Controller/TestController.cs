@@ -15,8 +15,23 @@ namespace DB2VM
     [ApiController]
     public class TestController : ControllerBase
     {
-        
-        // GET api/values
+
+        /// <summary>
+        /// API伺服器測試
+        /// </summary>
+        /// <remarks>
+        /// 以下為範例JSON範例
+        /// <code>
+        ///   {
+        ///     "Data": 
+        ///     {
+        ///     
+        ///     }
+        ///   }
+        /// </code>
+        /// </remarks>
+        /// <param name="None">無回傳</param>
+        /// <returns></returns>
         [HttpGet]
         public string Get()
         {

@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>DB2VM_API</name>
+    </assembly>
+    <members>
+        <member name="M:DB2VM.TestController.Get">
+            <summary>
+            API伺服器測試
+            </summary>
+            <remarks>
+            以下為範例JSON範例
+            <code>
+              {
+                "Data": 
+                {
+                
+                }
+              }
+            </code>
+            </remarks>
+            <param name="None">無回傳</param>
+            <returns></returns>
+        </member>
+    </members>
+</doc>
