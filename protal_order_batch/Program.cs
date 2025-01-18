@@ -13,14 +13,11 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Drawing;
-using System.Runtime.InteropServices;
 using System.Windows.Forms;
-using System.Threading;
-using System.Diagnostics;
-using System.IO;
+using MyUI;
 namespace protal_order_batch
 {
-
+    
     class Program
     {
         static private string API_Server = "http://127.0.0.1:4433";
@@ -28,212 +25,52 @@ namespace protal_order_batch
         static private string ServerType = "傳送櫃";
 
 
-        [DllImport("user32.dll")]
-        static extern int GetWindowLong(IntPtr hWnd, int nIndex);
-
-        [DllImport("user32.dll")]
-        static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
-
-        // 取得 Console 視窗 Handle
-        [DllImport("kernel32.dll")]
-        static extern IntPtr GetConsoleWindow();
-
-        [DllImport("user32.dll")]
-        static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-
-        [DllImport("user32.dll")]
-        static extern bool SetForegroundWindow(IntPtr hWnd);
-
-        [DllImport("user32.dll")]
-        static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
-
-        // P/Invoke 用来显示和隐藏控制台窗口
-        [DllImport("kernel32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        static extern bool AllocConsole();
-
-        [DllImport("kernel32.dll")]
-        static extern bool AttachConsole(int dwProcessId);
-
-        [DllImport("kernel32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        static extern bool FreeConsole();
-
-        private static bool consoleAllocated = false;
-
-        const int SW_HIDE = 0;
-        const int SW_SHOW = 5;
-        const int SW_RESTORE = 9;
-
-        private static NotifyIcon notifyIcon;
-        private static Mutex mutex;
-        private static ToolStripMenuItem showConsoleMenuItem;
-        private static ToolStripMenuItem hideConsoleMenuItem;
-        private static bool isConsoleVisible = false;
 
         [STAThread]
         static void Main(string[] args)
         {
-            // 避免重複啟動
-            mutex = new Mutex(true, "OnlyRun");
-            if (!mutex.WaitOne(0, false))
+            // 初始化 ConsoleTrayUI，設定 Notify 名稱、圖示、循環時間、是否檢查重複執行
+            ConsoleTrayUI trayUI = new ConsoleTrayUI(
+                notifyTitle: "protal_order_batch",
+                icon: SystemIcons.Information, // 可替換為自訂 ICON
+                interval: 3000, // 設定循環執行時間為 3 秒
+                checkDuplicateExecution: true // 防止重複執行
+            );
+
+            // 訂閱顯示事件
+            trayUI.OnShowConsole += () =>
             {
-                return;
-            }
-            // **初始化系統托盤**
-            InitializeTray();
-
-            //// **完全隱藏 Console 窗口**
-            HideConsole();
-            isConsoleVisible = false;
-
-            // **隱藏程式，不顯示在 Windows 工作列**
-            HideFromTaskbar();
-
-         
-
-            // **使用 Timer 週期執行工作**
-            System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer();
-            timer.Interval = 5000; // 每 5 秒執行一次
-            timer.Tick += (sender, e) => ProcessOrders();
-            timer.Start();
-
-            Application.Run(); // 確保應用程式保持執行
-        }
-
-        static void HideFromTaskbar()
-        {
-            IntPtr handle = GetConsoleWindow();
-            if (handle != IntPtr.Zero)
-            {
-                // 取得目前視窗的樣式
-                int style = GetWindowLong(handle, -20);
-
-                // 設定視窗為工具視窗，這樣它就不會顯示在工作列
-                SetWindowLong(handle, -20, style | 0x00000080);
-            }
-        }
-
-        static void InitializeTray()
-        {
-            notifyIcon = new NotifyIcon()
-            {
-                Icon = SystemIcons.Information,
-                Text = "Console App in System Tray",
-                Visible = true
+                Console.WriteLine("主控台已顯示");
             };
 
-            ContextMenuStrip menu = new ContextMenuStrip();
-            showConsoleMenuItem = new ToolStripMenuItem("顯示主控台", null, ShowConsole) { Enabled = true };
-            hideConsoleMenuItem = new ToolStripMenuItem("隱藏主控台", null, HideConsole) { Enabled = false };
-            menu.Items.Add(showConsoleMenuItem);
-            menu.Items.Add(hideConsoleMenuItem);
-            menu.Items.Add("退出", null, ExitApp);
-            notifyIcon.ContextMenuStrip = menu;
-
-            notifyIcon.DoubleClick += ToggleConsole;
-        }
-        public static void ShowConsole()
-        {
-            // 檢查是否已經有 Console
-            if (!consoleAllocated)
+            // 訂閱隱藏事件
+            trayUI.OnHideConsole += () =>
             {
-                consoleAllocated = AllocConsole();
-                if (!consoleAllocated)
+                Console.WriteLine("主控台已隱藏");
+            };
+
+            // 訂閱循環執行事件
+            trayUI.OnCycleExecute += () =>
+            {
+                try
                 {
-                    AttachConsole(-1);  // 嘗試附加到現有的 Console
+                    HIS_DB_Lib.OrderClass.init(API_Server, ServerName, ServerType);
+                    Uddspon();
+                    Udedspon();
                 }
-            }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"{e.Message}");
+                }
+            };
 
-            if (consoleAllocated)
-            {
+            // 運行應用程式（保持系統托盤運行）
+            Application.Run();
 
-                Console.OutputEncoding = Encoding.GetEncoding("Big5");
-
-                // 重新定向标准输出流
-                var standardOutput = new StreamWriter(Console.OpenStandardOutput(), Encoding.GetEncoding("Big5"));
-                standardOutput.AutoFlush = true;
-                Console.SetOut(standardOutput);
-                Console.SetError(standardOutput);
-
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine("* Don't close this console window or the application will also close.");
-                Console.ResetColor();
-                Console.WriteLine();
-            }
-            else
-            {
-                MessageBox.Show("無法顯示控制台窗口");
-            }
-        }
-        public static void HideConsole()
-        {
-            FreeConsole();
-            isConsoleVisible = false;
-            // **隱藏程式，不顯示在 Windows 工作列**
-            HideFromTaskbar();
-            showConsoleMenuItem.Enabled = true;
-            hideConsoleMenuItem.Enabled = false;
-        }
-        static void ShowConsole(object sender, EventArgs e)
-        {
-            ShowConsole();
-            isConsoleVisible = true;
-            showConsoleMenuItem.Enabled = false;
-            hideConsoleMenuItem.Enabled = true;
-        }
-        static void HideConsole(object sender, EventArgs e)
-        {
-            HideConsole();
-            isConsoleVisible = false;
-            // **隱藏程式，不顯示在 Windows 工作列**
-            HideFromTaskbar();
-            showConsoleMenuItem.Enabled = true;
-            hideConsoleMenuItem.Enabled = false;
-
-
-            //IntPtr handle = GetConsoleWindow();
-            //if (handle != IntPtr.Zero)
-            //{
-            //    ShowWindow(handle, SW_HIDE);
-            //    isConsoleVisible = false;
-            //    // **隱藏程式，不顯示在 Windows 工作列**
-            //    HideFromTaskbar();
-            //    showConsoleMenuItem.Enabled = true;
-            //    hideConsoleMenuItem.Enabled = false;
-            //}
-        }
-        static void ToggleConsole(object sender, EventArgs e)
-        {
-            if (isConsoleVisible)
-            {
-                HideConsole(sender, e);
-            }
-            else
-            {
-                ShowConsole(sender, e);
-            }
+         
         }
 
-        static void ExitApp(object sender, EventArgs e)
-        {
-            notifyIcon.Dispose();
-            Environment.Exit(0);
-        }
-
-        static void ProcessOrders()
-        {
-            try
-            {
-                HIS_DB_Lib.OrderClass.init(API_Server, ServerName, ServerType);
-                Uddspon();
-                Udedspon();
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine($"{e.Message}");
-            }
-        }
+      
 
         static public void Uddspon()
         {
